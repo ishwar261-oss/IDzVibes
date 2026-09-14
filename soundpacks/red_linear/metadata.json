@@ -1,0 +1,10 @@
+{
+  "id": "red_linear",
+  "name": "Red Linear",
+  "author": "IDzVibes Studio",
+  "version": "1.0.0",
+  "description": "Smooth, soft-bottoming silent linear switches with muted stabilizer tones.",
+  "license": "MIT",
+  "tags": ["linear", "silent", "smooth", "quiet"],
+  "has_release_sounds": true
+}

@@ -1,0 +1,18 @@
+[package]
+name = "idz-input"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Windows Raw Input keyboard and mouse engine for IDzVibes"
+
+[dependencies]
+idz-shared = { path = "../idz-shared" }
+
+thiserror = { workspace = true }
+tracing = { workspace = true }
+crossbeam-channel = { workspace = true }
+serde = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true }

@@ -1,0 +1,27 @@
+[package]
+name = "idz-audio"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Ultra-low-latency audio engine for IDzVibes"
+
+[dependencies]
+idz-shared = { path = "../idz-shared" }
+
+# Audio I/O
+cpal = { workspace = true }
+
+# Audio decoding
+symphonia = { workspace = true }
+
+# Serialization & Utils
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+crossbeam-channel = { workspace = true }
+rand = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true }

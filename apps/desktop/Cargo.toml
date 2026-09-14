@@ -1,0 +1,32 @@
+[package]
+name = "idz-desktop"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "IDzVibes Desktop Application"
+default-run = "idz-desktop"
+
+[[bin]]
+name = "idz-desktop"
+path = "src/main.rs"
+
+[[bin]]
+name = "gen-sounds"
+path = "../../scripts/gen_default_sounds.rs"
+
+[dependencies]
+idz-shared = { path = "../../crates/idz-shared" }
+idz-audio = { path = "../../crates/idz-audio" }
+idz-input = { path = "../../crates/idz-input" }
+
+# Serialization & CLI
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+crossbeam-channel = { workspace = true }
+tiny_http = "0.12"
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true }
