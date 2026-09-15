@@ -219,18 +219,57 @@ pub fn start_ui_server(
 }
 
 fn apply_soundpack(state: &ServerState, id: &str) -> Result<String, String> {
-    let pack_dir = state.soundpacks_dir.join(id);
+    let mut pack_dir = state.soundpacks_dir.join(id);
     if !pack_dir.exists() {
-        return Err(format!("Soundpack directory not found: {}", pack_dir.display()));
+        if let Ok(entries) = fs::read_dir(&state.soundpacks_dir) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_dir() {
+                    let fname = p.file_name().and_then(|s| s.to_str()).unwrap_or("");
+                    if fname == id {
+                        pack_dir = p;
+                        break;
+                    }
+                    if let Ok(meta_s) = fs::read_to_string(p.join("metadata.json")) {
+                        if let Ok(m) = serde_json::from_str::<SoundpackMetadata>(&meta_s) {
+                            if m.id == id {
+                                pack_dir = p;
+                                break;
+                            }
+                        }
+                    }
+                    if let Ok(cfg_s) = fs::read_to_string(p.join("config.json")) {
+                        if let Ok(cfg) = serde_json::from_str::<serde_json::Value>(&cfg_s) {
+                            if cfg.get("id").and_then(|v| v.as_str()) == Some(id) {
+                                pack_dir = p;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if !pack_dir.exists() {
+        return Err(format!("Soundpack directory not found for ID: {id}"));
     }
 
     let soundpack = Soundpack::load_from_dir(&pack_dir)
         .map_err(|e| format!("Failed to load soundpack: {e}"))?;
 
     let name = soundpack.metadata.name.clone();
+    println!(
+        "  [Apply] Soundpack '{}': {} mapped keys, fallback down={} up={}",
+        name,
+        soundpack.key_sounds.len(),
+        soundpack.fallback_sound.down_samples.len(),
+        soundpack.fallback_sound.up_samples.len()
+    );
     state.audio_handle.set_soundpack(soundpack);
 
-    *state.active_soundpack_id.lock().unwrap() = id.to_string();
+    let active_id = pack_dir.file_name().and_then(|s| s.to_str()).unwrap_or(id).to_string();
+    *state.active_soundpack_id.lock().unwrap() = active_id;
     *state.active_soundpack_name.lock().unwrap() = name.clone();
 
     Ok(name)
@@ -264,32 +303,52 @@ fn get_state_dto(state: &ServerState) -> AppStateDto {
 
 pub fn scan_soundpacks(dir: &Path, active_id: &str) -> Vec<SoundpackInfo> {
     let mut packs = Vec::new();
+    println!("  [*] Scanning soundpacks directory: {}", dir.display());
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
                 let folder_name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+                println!("      - Found soundpack folder: {}", folder_name);
                 let meta_path = path.join("metadata.json");
+                let config_path = path.join("config.json");
 
-                let meta: SoundpackMetadata = if meta_path.exists() {
-                    fs::read_to_string(&meta_path)
-                        .ok()
-                        .and_then(|s| serde_json::from_str(&s).ok())
-                        .unwrap_or_else(|| fallback_meta(folder_name))
+                let (meta_id, name, author, version, description, tags) = if meta_path.exists() {
+                    if let Ok(s) = fs::read_to_string(&meta_path) {
+                        if let Ok(m) = serde_json::from_str::<SoundpackMetadata>(&s) {
+                            (m.id, m.name, m.author, m.version, m.description, m.tags)
+                        } else {
+                            fallback_meta_tuple(folder_name)
+                        }
+                    } else {
+                        fallback_meta_tuple(folder_name)
+                    }
+                } else if config_path.exists() {
+                    if let Ok(s) = fs::read_to_string(&config_path) {
+                        if let Ok(cfg) = serde_json::from_str::<serde_json::Value>(&s) {
+                            let id = cfg.get("id").and_then(|v| v.as_str()).unwrap_or(folder_name).to_string();
+                            let name = cfg.get("name").and_then(|v| v.as_str()).unwrap_or(folder_name).to_string();
+                            (id, name, "Mechvibes Community".to_string(), "1.0.0".to_string(), "Custom mechanical switch sound profile".to_string(), vec!["mechvibes".to_string()])
+                        } else {
+                            fallback_meta_tuple(folder_name)
+                        }
+                    } else {
+                        fallback_meta_tuple(folder_name)
+                    }
                 } else {
-                    fallback_meta(folder_name)
+                    fallback_meta_tuple(folder_name)
                 };
 
-                let id = if meta.id.is_empty() { folder_name.to_string() } else { meta.id };
-                let is_active = id == active_id || folder_name == active_id;
+                let id = folder_name.to_string();
+                let is_active = id == active_id || meta_id == active_id || folder_name == active_id;
 
                 packs.push(SoundpackInfo {
                     id,
-                    name: meta.name,
-                    author: meta.author,
-                    version: meta.version,
-                    description: meta.description,
-                    tags: meta.tags,
+                    name,
+                    author,
+                    version,
+                    description,
+                    tags,
                     path: path.to_string_lossy().to_string(),
                     is_active,
                 });
@@ -299,16 +358,14 @@ pub fn scan_soundpacks(dir: &Path, active_id: &str) -> Vec<SoundpackInfo> {
     packs
 }
 
-fn fallback_meta(name: &str) -> SoundpackMetadata {
-    SoundpackMetadata {
-        id: name.to_string(),
-        name: name.replace('_', " ").to_uppercase(),
-        author: "Community".to_string(),
-        version: "1.0.0".to_string(),
-        description: "Custom mechanical switch sound profile".to_string(),
-        license: "MIT".to_string(),
-        tags: vec!["custom".to_string()],
-        preview: None,
-        has_release_sounds: false,
-    }
+fn fallback_meta_tuple(folder_name: &str) -> (String, String, String, String, String, Vec<String>) {
+    (
+        folder_name.to_string(),
+        folder_name.replace('_', " ").replace('-', " ").to_uppercase(),
+        "Community".to_string(),
+        "1.0.0".to_string(),
+        "Custom mechanical switch sound profile".to_string(),
+        vec!["custom".to_string()],
+    )
 }
+

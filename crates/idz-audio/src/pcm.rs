@@ -103,6 +103,29 @@ impl PcmBuffer {
 
         Self::new(dst_samples, target_channels, target_sample_rate)
     }
+
+    /// Extract a sub-range of audio by start offset and duration in milliseconds.
+    pub fn slice_ms(&self, offset_ms: u64, duration_ms: u64) -> Self {
+        let channels = self.channels as usize;
+        if channels == 0 || self.samples.is_empty() {
+            return Self::new(vec![], self.channels, self.sample_rate);
+        }
+
+        let start_frame = ((offset_ms as f64 / 1000.0) * self.sample_rate as f64) as usize;
+        let frame_count = ((duration_ms as f64 / 1000.0) * self.sample_rate as f64) as usize;
+        let total_frames = self.samples.len() / channels;
+
+        if start_frame >= total_frames {
+            return Self::new(vec![], self.channels, self.sample_rate);
+        }
+
+        let end_frame = (start_frame + frame_count).min(total_frames);
+        let start_sample = start_frame * channels;
+        let end_sample = end_frame * channels;
+
+        let sliced_samples = self.samples[start_sample..end_sample].to_vec();
+        Self::new(sliced_samples, self.channels, self.sample_rate)
+    }
 }
 
 #[cfg(test)]
@@ -123,5 +146,15 @@ mod tests {
         assert_eq!(resampled.sample_rate, 48000);
         assert!(!resampled.samples.is_empty());
     }
+
+    #[test]
+    fn test_pcm_slice_ms() {
+        let samples: Vec<f32> = (0..44100).map(|i| i as f32).collect();
+        let buf = PcmBuffer::new(samples, 1, 44100);
+        let slice = buf.slice_ms(500, 200); // 0.5s to 0.7s -> 8820 samples
+        assert_eq!(slice.samples.len(), 8820);
+        assert_eq!(slice.samples[0], 22050.0);
+    }
 }
+
 

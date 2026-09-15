@@ -180,20 +180,33 @@ impl Soundpack {
             return Err(SoundpackError::NotFound(format!("Path is not a directory: {}", dir.display())));
         }
 
-        // Read metadata.json
         let meta_file = dir.join("metadata.json");
-        let metadata: SoundpackMetadata = if meta_file.exists() {
+        let config_file = dir.join("config.json");
+
+        if meta_file.exists() {
             let mut file = File::open(&meta_file)
                 .map_err(|e| SoundpackError::InvalidMetadata(format!("Cannot open metadata.json: {e}")))?;
             let mut content = String::new();
             file.read_to_string(&mut content)
                 .map_err(|e| SoundpackError::InvalidMetadata(format!("Cannot read metadata.json: {e}")))?;
-            serde_json::from_str(&content)
-                .map_err(|e| SoundpackError::InvalidMetadata(format!("JSON parse error: {e}")))?
+            let metadata: SoundpackMetadata = serde_json::from_str(&content)
+                .map_err(|e| SoundpackError::InvalidMetadata(format!("JSON parse error: {e}")))?;
+
+            let mut soundpack = Soundpack::new(metadata);
+            let sounds_dir = if dir.join("sounds").is_dir() {
+                dir.join("sounds")
+            } else {
+                dir.to_path_buf()
+            };
+
+            soundpack.scan_and_load_sounds(&sounds_dir)?;
+            Ok(soundpack)
+        } else if config_file.exists() {
+            Self::load_mechvibes_pack(dir, &config_file)
         } else {
             // Default metadata derived from folder name
             let dir_name = dir.file_name().and_then(|n| n.to_str()).unwrap_or("soundpack");
-            SoundpackMetadata {
+            let metadata = SoundpackMetadata {
                 id: dir_name.to_lowercase().replace(' ', "_"),
                 name: dir_name.to_string(),
                 author: "Local".to_string(),
@@ -203,19 +216,132 @@ impl Soundpack {
                 tags: vec![],
                 preview: None,
                 has_release_sounds: false,
-            }
+            };
+
+            let mut soundpack = Soundpack::new(metadata);
+            let sounds_dir = if dir.join("sounds").is_dir() {
+                dir.join("sounds")
+            } else {
+                dir.to_path_buf()
+            };
+
+            soundpack.scan_and_load_sounds(&sounds_dir)?;
+            Ok(soundpack)
+        }
+    }
+
+    fn load_mechvibes_pack(dir: &Path, config_path: &Path) -> Result<Self, SoundpackError> {
+        let mut file = File::open(config_path)
+            .map_err(|e| SoundpackError::InvalidMetadata(format!("Cannot open config.json: {e}")))?;
+        let mut content = String::new();
+        file.read_to_string(&mut content)
+            .map_err(|e| SoundpackError::InvalidMetadata(format!("Cannot read config.json: {e}")))?;
+
+        let cfg: serde_json::Value = serde_json::from_str(&content)
+            .map_err(|e| SoundpackError::InvalidMetadata(format!("JSON parse error in config.json: {e}")))?;
+
+        let folder_name = dir.file_name().and_then(|n| n.to_str()).unwrap_or("soundpack");
+        let id = cfg.get("id").and_then(|v| v.as_str()).unwrap_or(folder_name).to_string();
+        let name = cfg.get("name").and_then(|v| v.as_str()).unwrap_or(folder_name).to_string();
+
+        let metadata = SoundpackMetadata {
+            id,
+            name,
+            author: "Mechvibes Community".to_string(),
+            version: "1.0.0".to_string(),
+            description: "Custom mechanical switch sound profile".to_string(),
+            license: "MIT".to_string(),
+            tags: vec!["mechvibes".to_string()],
+            preview: None,
+            has_release_sounds: false,
         };
 
         let mut soundpack = Soundpack::new(metadata);
+        let define_type = cfg.get("key_define_type").and_then(|v| v.as_str()).unwrap_or("multi");
+        let defines = cfg.get("defines").and_then(|v| v.as_object());
 
-        // Load sounds from sounds/ or root dir
-        let sounds_dir = if dir.join("sounds").is_dir() {
-            dir.join("sounds")
+        if define_type.eq_ignore_ascii_case("single") {
+            let sound_rel = cfg.get("sound").and_then(|v| v.as_str()).unwrap_or("sound.ogg");
+            let sound_file = dir.join(sound_rel);
+            let sound_path = if sound_file.exists() {
+                sound_file
+            } else {
+                let mut found = None;
+                if let Ok(entries) = std::fs::read_dir(dir) {
+                    for entry in entries.flatten() {
+                        let p = entry.path();
+                        if p.is_file() {
+                            let ext = p.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+                            if matches!(ext.as_str(), "ogg" | "wav" | "mp3" | "flac") {
+                                found = Some(p);
+                                break;
+                            }
+                        }
+                    }
+                }
+                found.ok_or_else(|| SoundpackError::NotFound(format!("Audio file {sound_rel} not found"))) ?
+            };
+
+            let master_buf = load_audio_file(&sound_path)
+                .map_err(|e| SoundpackError::UnsupportedFormat(format!("Failed to load {}: {e}", sound_path.display())))?;
+
+            if let Some(defs) = defines {
+                for (key_str, val) in defs {
+                    if let Some(key) = parse_mechvibes_key(key_str) {
+                        if let Some(arr) = val.as_array() {
+                            if arr.len() >= 2 {
+                                let offset_ms = arr[0].as_u64().unwrap_or(0);
+                                let duration_ms = arr[1].as_u64().unwrap_or(0);
+                                if duration_ms > 0 {
+                                    let sub_buf = master_buf.slice_ms(offset_ms, duration_ms);
+                                    soundpack.key_sounds.entry(key).or_default().down_samples.push(sub_buf);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         } else {
-            dir.to_path_buf()
-        };
+            // "multi" mode
+            let mut cache: HashMap<String, PcmBuffer> = HashMap::new();
+            if let Some(defs) = defines {
+                for (key_str, val) in defs {
+                    if let Some(filename) = val.as_str() {
+                        if let Some(key) = parse_mechvibes_key(key_str) {
+                            let sample_buf = if let Some(cached) = cache.get(filename) {
+                                Some(cached.clone())
+                            } else {
+                                let audio_path = dir.join(filename);
+                                if audio_path.exists() {
+                                    if let Ok(buf) = load_audio_file(&audio_path) {
+                                        cache.insert(filename.to_string(), buf.clone());
+                                        Some(buf)
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            };
 
-        soundpack.scan_and_load_sounds(&sounds_dir)?;
+                            if let Some(buf) = sample_buf {
+                                soundpack.key_sounds.entry(key).or_default().down_samples.push(buf);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Set fallback sound from space or first key if fallback is empty
+        if soundpack.fallback_sound.down_samples.is_empty() {
+            if let Some(space_sound) = soundpack.key_sounds.get(&KeyCode::Space) {
+                soundpack.fallback_sound.down_samples = space_sound.down_samples.clone();
+            } else if let Some((_, first_sound)) = soundpack.key_sounds.iter().next() {
+                soundpack.fallback_sound.down_samples = first_sound.down_samples.clone();
+            }
+        }
+
         Ok(soundpack)
     }
 
@@ -401,3 +527,46 @@ fn parse_key_name(name: &str) -> Option<KeyCode> {
         _ => None,
     }
 }
+
+fn parse_mechvibes_key(key_str: &str) -> Option<KeyCode> {
+    if let Ok(num) = key_str.parse::<u32>() {
+        let (scancode, extended) = if num >= 57344 {
+            (num - 57344, true)
+        } else if num >= 3584 {
+            (num - 3584, true)
+        } else if num >= 256 {
+            (num & 0xFF, true)
+        } else {
+            (num, false)
+        };
+        let kc = KeyCode::from_scan_code(scancode, extended);
+        if !matches!(kc, KeyCode::Unknown(_)) {
+            return Some(kc);
+        }
+    }
+    parse_key_name(key_str)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_load_mechvibes_soundpacks() {
+        let soundpacks_dir = Path::new("../../soundpacks");
+        if soundpacks_dir.exists() {
+            let entries = std::fs::read_dir(soundpacks_dir).unwrap();
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_dir() {
+                    let res = Soundpack::load_from_dir(&p);
+                    assert!(res.is_ok(), "Failed to load soundpack from {}: {:?}", p.display(), res.err());
+                    let pack = res.unwrap();
+                    assert!(!pack.key_sounds.is_empty(), "Loaded 0 keys for soundpack {}", p.display());
+                }
+            }
+        }
+    }
+}
+
+

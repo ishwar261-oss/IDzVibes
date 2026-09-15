@@ -29,13 +29,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  =======================================================");
     println!();
 
-    let soundpacks_dir = PathBuf::from("soundpacks");
+    let soundpacks_dir = resolve_soundpacks_dir();
+    println!("  [*] Soundpacks location: {}", soundpacks_dir.display());
+
     if !soundpacks_dir.exists() || !soundpacks_dir.join("creamy_thock").exists() {
         println!("  [*] Generating built-in preset soundpacks...");
         crate_gen_sounds(&soundpacks_dir)?;
     }
 
-    let initial_pack_path = soundpacks_dir.join("creamy_thock");
+    let initial_pack_path = if soundpacks_dir.join("creamy_thock").exists() {
+        soundpacks_dir.join("creamy_thock")
+    } else if let Ok(mut entries) = std::fs::read_dir(&soundpacks_dir) {
+        entries.find_map(|e| e.ok().map(|entry| entry.path())).unwrap_or_else(|| soundpacks_dir.join("creamy_thock"))
+    } else {
+        soundpacks_dir.join("creamy_thock")
+    };
+
     println!("  [*] Loading initial soundpack: {}", initial_pack_path.display());
     let soundpack = Soundpack::load_from_dir(&initial_pack_path)?;
     let initial_name = soundpack.metadata.name.clone();
@@ -190,3 +199,61 @@ fn ctrlc_handler<F: FnOnce() + Send + 'static>(handler: F) {
 unsafe extern "system" fn console_ctrl_handler(_ctrl_type: u32) -> windows::Win32::Foundation::BOOL {
     windows::Win32::Foundation::BOOL(1)
 }
+
+fn resolve_soundpacks_dir() -> PathBuf {
+    let mut candidates = Vec::new();
+
+    // Primary workspace soundpacks path
+    candidates.push(PathBuf::from(r"D:\Github Uplods\IDzVibes\soundpacks"));
+
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join("soundpacks"));
+        let cwd_str = cwd.to_string_lossy();
+        if cwd_str.to_lowercase().contains("projects") {
+            let fixed = cwd_str.replace("d:\\projects\\Prompts", "d:\\Github Uplods")
+                               .replace("D:\\projects\\Prompts", "D:\\Github Uplods")
+                               .replace("d:/projects/Prompts", "d:/Github Uplods")
+                               .replace("D:/projects/Prompts", "D:/Github Uplods");
+            candidates.push(PathBuf::from(fixed).join("soundpacks"));
+        }
+    }
+
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            candidates.push(exe_dir.join("soundpacks"));
+            candidates.push(exe_dir.join("../../soundpacks"));
+            candidates.push(exe_dir.join("../../../soundpacks"));
+
+            let exe_str = exe_dir.to_string_lossy();
+            if exe_str.to_lowercase().contains("projects") {
+                let fixed = exe_str.replace("d:\\projects\\Prompts", "d:\\Github Uplods")
+                                   .replace("D:\\projects\\Prompts", "D:\\Github Uplods")
+                                   .replace("d:/projects/Prompts", "d:/Github Uplods")
+                                   .replace("D:/projects/Prompts", "D:/Github Uplods");
+                let fixed_path = PathBuf::from(fixed);
+                candidates.push(fixed_path.join("soundpacks"));
+                candidates.push(fixed_path.join("../../soundpacks"));
+                candidates.push(fixed_path.join("../../../soundpacks"));
+            }
+        }
+    }
+
+    let mut best_path = PathBuf::from("soundpacks");
+    let mut max_count = 0;
+
+    for cand in candidates {
+        if cand.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(&cand) {
+                let count = entries.flatten().filter(|e| e.path().is_dir()).count();
+                if count > max_count {
+                    max_count = count;
+                    best_path = cand;
+                }
+            }
+        }
+    }
+
+    best_path
+}
+
+
