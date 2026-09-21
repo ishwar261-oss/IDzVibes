@@ -377,7 +377,7 @@
         Live Audio Engine Active
       </div>
       <h1>IDzVibes Web Demo</h1>
-      <p class="subtitle">Experience mechanical keyboard sound profiles live in your browser with procedural acoustic synthesis. Press any key on your keyboard!</p>
+      <p class="subtitle">Experience your custom mechanical keyboard soundpacks live in your browser. Press any key on your keyboard!</p>
     </header>
 
     <!-- Dashboard Controls -->
@@ -385,7 +385,7 @@
       <div class="status-group">
         <div class="stat-item">
           <span class="stat-label">Active Soundpack</span>
-          <span class="stat-value" id="active-pack-title" style="color: var(--accent-cyan);">Creamy Thock</span>
+          <span class="stat-value" id="active-pack-title" style="color: var(--accent-cyan);">Cherry MX Red (ABS)</span>
         </div>
         <div class="stat-item">
           <span class="stat-label">Keystrokes</span>
@@ -518,20 +518,55 @@
   </div>
 
   <script>
-    // --- Sound Synthesis Engine via Web Audio API ---
     let audioCtx = null;
     let masterGain = null;
     let isMuted = false;
     let masterVolume = 0.8;
     let count = 0;
     const activeKeys = new Set();
+    const sampleBuffers = new Map();
 
     const soundpackProfiles = [
-      { id: "cherrymx_red_abs", name: "Cherry MX Red (ABS)", desc: "Smooth linear switch sound with clean ABS keycap bottom-out.", type: "linear", baseFreq: 450, snapFreq: 2200 },
-      { id: "hyperx_aqua", name: "HyperX Alloy Origins Aqua", desc: "Tactile aqua switch profile with crisp actuation bump.", type: "thock", baseFreq: 280, snapFreq: 1400 },
-      { id: "mx_speed_silver", name: "Cherry MX Speed Silver", desc: "Ultra-fast 1.2mm actuation linear gaming switch sound.", type: "linear", baseFreq: 480, snapFreq: 2400 },
-      { id: "razer_green", name: "Razer Green (Blackwidow Elite)", desc: "Tactile clicky sound with sharp metallic clack feedback.", type: "clicky", baseFreq: 2800, snapFreq: 5200 },
-      { id: "steelseries_apex", name: "SteelSeries Apex Pro TKL", desc: "OmniPoint magnetic switch sound profile with dampening.", type: "silent", baseFreq: 260, snapFreq: 900 }
+      {
+        id: "cherrymx_red_abs",
+        name: "Cherry MX Red (ABS)",
+        desc: "Smooth linear switch sound with clean ABS keycap bottom-out.",
+        folder: "cherrymx-red-abs",
+        samples: ["sound.ogg"],
+        type: "linear", baseFreq: 450, snapFreq: 2200
+      },
+      {
+        id: "hyperx_aqua",
+        name: "HyperX Alloy Origins Aqua",
+        desc: "Tactile aqua switch profile with crisp actuation bump.",
+        folder: "HyperX Alloy Origins Aqua Switches",
+        samples: ["1.wav", "2.wav"],
+        type: "thock", baseFreq: 280, snapFreq: 1400
+      },
+      {
+        id: "mx_speed_silver",
+        name: "Cherry MX Speed Silver",
+        desc: "Ultra-fast 1.2mm actuation linear gaming switch sound.",
+        folder: "mx-speed-silver",
+        samples: ["mx-speed-silver-1.wav", "mx-speed-silver-2.wav", "mx-speed-silver-3.wav", "mx-speed-silver-4.wav", "mx-speed-silver-5.wav", "mx-speed-silver-6.wav"],
+        type: "linear", baseFreq: 480, snapFreq: 2400
+      },
+      {
+        id: "razer_green",
+        name: "Razer Green (Blackwidow Elite)",
+        desc: "Tactile clicky sound with sharp metallic clack feedback.",
+        folder: "Razer Green (Blackwidow Elite) - Akira (1)",
+        samples: ["key1.wav", "key2.wav", "key3.wav", "key4.wav", "key5.wav", "key6.wav", "space1.wav", "space2.wav"],
+        type: "clicky", baseFreq: 2800, snapFreq: 5200
+      },
+      {
+        id: "steelseries_apex",
+        name: "SteelSeries Apex Pro TKL",
+        desc: "OmniPoint magnetic switch sound profile with dampening.",
+        folder: "steelseries apex pro tkl",
+        samples: ["apex1.wav", "apex2.wav", "apex3.wav", "apex4.wav", "apex5.wav", "apex6.wav", "apex7.wav", "apex8.wav", "space.wav", "enter.wav"],
+        type: "silent", baseFreq: 260, snapFreq: 900
+      }
     ];
 
     let currentProfile = soundpackProfiles[0];
@@ -549,16 +584,61 @@
       }
     }
 
+    async function loadProfileAudioSamples(profile, basePath = "soundpacks/") {
+      if (sampleBuffers.has(profile.id)) return;
+      initAudio();
+      const buffers = [];
+      for (const sampleFile of profile.samples) {
+        const url = `${basePath}${encodeURIComponent(profile.folder)}/${encodeURIComponent(sampleFile)}`;
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            const ab = await res.arrayBuffer();
+            const audioBuf = await audioCtx.decodeAudioData(ab);
+            buffers.push(audioBuf);
+          }
+        } catch (e) {
+          console.warn("Sample fetch failed, using acoustic synth fallback:", url);
+        }
+      }
+      if (buffers.length > 0) {
+        sampleBuffers.set(profile.id, buffers);
+      }
+    }
+
     function playKeySound(isSpace = false) {
       if (isMuted) return;
       initAudio();
 
       const now = audioCtx.currentTime;
       const volMultiplier = isSpace ? 1.35 : 1.0;
+
+      // Play real audio buffer if available
+      const realBuffers = sampleBuffers.get(currentProfile.id);
+      if (realBuffers && realBuffers.length > 0) {
+        const buf = realBuffers[Math.floor(Math.random() * realBuffers.length)];
+        const src = audioCtx.createBufferSource();
+        const gainNode = audioCtx.createGain();
+
+        src.buffer = buf;
+        src.playbackRate.value = 0.98 + (Math.random() * 0.04); // Natural pitch variance
+
+        gainNode.gain.setValueAtTime(volMultiplier, now);
+
+        src.connect(gainNode);
+        gainNode.connect(masterGain);
+
+        src.start(now);
+
+        count++;
+        document.getElementById('keystroke-count').textContent = count;
+        return;
+      }
+
+      // Procedural Acoustic Synthesis Fallback
       const freqPitchMod = (Math.random() * 0.08) - 0.04;
 
       if (currentProfile.type === 'thock') {
-        // Deep Thock Synthesis
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         const filter = audioCtx.createBiquadFilter();
@@ -583,7 +663,6 @@
         osc.start(now);
         osc.stop(now + 0.09);
 
-        // Click transient
         const noise = audioCtx.createBufferSource();
         const bufferSize = audioCtx.sampleRate * 0.02;
         const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
@@ -606,7 +685,6 @@
         noise.start(now);
 
       } else if (currentProfile.type === 'clicky') {
-        // High Clicky Snap Synthesis
         const noise = audioCtx.createBufferSource();
         const bufferSize = audioCtx.sampleRate * 0.025;
         const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
@@ -628,7 +706,6 @@
 
         noise.start(now);
       } else {
-        // Linear / Silent Synthesis
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
 
@@ -645,7 +722,6 @@
         osc.stop(now + 0.06);
       }
 
-      // Update counters
       count++;
       document.getElementById('keystroke-count').textContent = count;
     }
@@ -664,10 +740,14 @@
         card.classList.add('active');
         currentProfile = pack;
         document.getElementById('active-pack-title').textContent = pack.name;
+        loadProfileAudioSamples(pack);
         playKeySound();
       };
       grid.appendChild(card);
     });
+
+    // Preload initial soundpack
+    loadProfileAudioSamples(currentProfile);
 
     // Mute & Volume
     const muteBtn = document.getElementById('mute-btn');
@@ -687,7 +767,7 @@
       }
     };
 
-    // Keyboard Event Handling with Key-Repeat Deduplication
+    // Keyboard Event Handling
     const keyElements = {};
     document.querySelectorAll('.key').forEach(el => {
       keyElements[el.dataset.key] = el;
@@ -700,10 +780,9 @@
     });
 
     window.onkeydown = (e) => {
-      if (e.repeat) return; // Deduplicate held key repeats
+      if (e.repeat) return;
       const code = e.code;
 
-      // Tab key or any key pressed while Alt is held (Alt+Tab combo) should ALWAYS trigger sound
       if (code === 'Tab' || e.altKey) {
         playKeySound(code === 'Space');
         if (keyElements[code]) {
