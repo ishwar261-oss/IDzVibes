@@ -1,0 +1,10 @@
+{
+  "id": "retro_typewriter",
+  "name": "Retro Typewriter",
+  "author": "IDzVibes Studio",
+  "version": "1.0.0",
+  "description": "Heavy vintage mechanical typewriter with distinctive carriage spacebar and metal key levers.",
+  "license": "MIT",
+  "tags": ["vintage", "typewriter", "heavy", "mechanical"],
+  "has_release_sounds": true
+}

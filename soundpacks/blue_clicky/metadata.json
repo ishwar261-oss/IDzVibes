@@ -1,0 +1,10 @@
+{
+  "id": "blue_clicky",
+  "name": "Blue Clicky",
+  "author": "IDzVibes Studio",
+  "version": "1.0.0",
+  "description": "Crisp, tactile blue switches with distinct click snaps and custom modifier harmonics.",
+  "license": "MIT",
+  "tags": ["clicky", "tactile", "crisp", "loud"],
+  "has_release_sounds": true
+}
