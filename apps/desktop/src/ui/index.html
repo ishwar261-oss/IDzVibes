@@ -4,24 +4,57 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>IDzVibes — Keyboard Sound Engine</title>
+  <meta name="description" content="IDzVibes Ultra-Low-Latency Keyboard Sound Engine Dashboard. Switch soundpacks, control volume, and test keyboard sounds in real-time." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
+    @font-face {
+      font-family: 'Aptos Mono';
+      src: local('Aptos Mono'), local('Cascadia Mono'), local('Consolas');
+      font-weight: 400;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'Aptos Mono';
+      src: local('Aptos Mono Bold'), local('Cascadia Mono Bold'), local('Consolas Bold');
+      font-weight: 700;
+      font-style: normal;
+    }
+
     :root {
-      --bg: #090a0f;
-      --surface: #12141e;
-      --surface-elevated: #1a1d2d;
-      --surface-border: #262a40;
-      --accent: #8b5cf6;
-      --accent-glow: rgba(139, 92, 246, 0.4);
-      --accent-gradient: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
-      --text: #f3f4f6;
-      --text-muted: #9ca3af;
+      --bg: #06070d;
+      --surface: rgba(14, 16, 26, 0.85);
+      --surface-solid: #0e101a;
+      --surface-elevated: rgba(22, 25, 42, 0.9);
+      --surface-border: rgba(56, 62, 100, 0.35);
+      --surface-border-hover: rgba(139, 92, 246, 0.45);
+      --accent-1: #8b5cf6;
+      --accent-2: #6366f1;
+      --accent-3: #a78bfa;
+      --accent-glow: rgba(139, 92, 246, 0.35);
+      --accent-glow-strong: rgba(139, 92, 246, 0.55);
+      --accent-gradient: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #818cf8 100%);
+      --accent-gradient-subtle: linear-gradient(135deg, rgba(139,92,246,0.15) 0%, rgba(99,102,241,0.1) 100%);
+      --text: #f1f3f8;
+      --text-muted: #8892b0;
+      --text-dimmed: #5a6380;
       --success: #10b981;
-      --success-glow: rgba(16, 185, 129, 0.3);
+      --success-soft: rgba(16, 185, 129, 0.12);
+      --success-border: rgba(16, 185, 129, 0.35);
+      --success-glow: rgba(16, 185, 129, 0.25);
       --danger: #ef4444;
-      --radius: 12px;
+      --danger-soft: rgba(239, 68, 68, 0.12);
+      --danger-border: rgba(239, 68, 68, 0.35);
+      --warning: #f59e0b;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --radius-xs: 7px;
+      --mono: 'Aptos Mono', 'Cascadia Mono', 'Consolas', 'SF Mono', monospace;
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      --glass-blur: blur(20px);
+      --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-bounce: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
     * {
@@ -31,26 +64,45 @@
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: var(--sans);
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      background-image: 
-        radial-gradient(circle at 15% 15%, rgba(139, 92, 246, 0.08) 0%, transparent 40%),
-        radial-gradient(circle at 85% 85%, rgba(99, 102, 241, 0.06) 0%, transparent 40%);
       user-select: none;
+      overflow-x: hidden;
     }
 
+    /* Animated background mesh */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 600px 400px at 10% 10%, rgba(139, 92, 246, 0.08) 0%, transparent 70%),
+        radial-gradient(ellipse 500px 500px at 90% 80%, rgba(99, 102, 241, 0.06) 0%, transparent 70%),
+        radial-gradient(ellipse 400px 300px at 50% 50%, rgba(129, 140, 248, 0.03) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+      animation: meshDrift 20s ease-in-out infinite alternate;
+    }
+
+    @keyframes meshDrift {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(-20px, 15px) scale(1.02); }
+    }
+
+    /* ─────────────── HEADER ─────────────── */
     header {
-      padding: 20px 32px;
+      padding: 16px 28px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       border-bottom: 1px solid var(--surface-border);
-      background: rgba(18, 20, 30, 0.7);
-      backdrop-filter: blur(16px);
+      background: rgba(10, 12, 20, 0.75);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
       position: sticky;
       top: 0;
       z-index: 100;
@@ -63,87 +115,203 @@
     }
 
     .brand-logo {
-      width: 38px;
-      height: 38px;
-      border-radius: 10px;
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
       background: var(--accent-gradient);
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 0 20px var(--accent-glow);
-      font-size: 20px;
+      box-shadow: 0 0 24px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.15);
+      font-size: 18px;
+      animation: logoPulse 3s ease-in-out infinite;
+    }
+
+    @keyframes logoPulse {
+      0%, 100% { box-shadow: 0 0 24px var(--accent-glow); }
+      50% { box-shadow: 0 0 36px var(--accent-glow-strong); }
     }
 
     .brand-title {
-      font-weight: 800;
-      font-size: 20px;
-      letter-spacing: -0.5px;
-      background: linear-gradient(to right, #fff, #c4b5fd);
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 19px;
+      letter-spacing: -0.3px;
+      background: linear-gradient(135deg, #fff 0%, #c4b5fd 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
     .brand-badge {
-      font-size: 11px;
-      font-weight: 600;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
       padding: 3px 8px;
       border-radius: 6px;
-      background: rgba(139, 92, 246, 0.15);
-      border: 1px solid rgba(139, 92, 246, 0.3);
-      color: #c4b5fd;
+      background: rgba(139, 92, 246, 0.12);
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      color: var(--accent-3);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 1px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
     }
 
     .status-badge {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 13px;
-      font-weight: 500;
-      padding: 6px 14px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 7px 14px;
       border-radius: 20px;
       background: var(--surface-elevated);
       border: 1px solid var(--surface-border);
+      backdrop-filter: var(--glass-blur);
     }
 
     .status-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background: var(--success);
-      box-shadow: 0 0 10px var(--success);
-      animation: pulse 2s infinite;
+      box-shadow: 0 0 8px var(--success);
+      animation: statusPulse 2.5s ease-in-out infinite;
     }
 
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.2); opacity: 0.7; }
+    @keyframes statusPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.65; transform: scale(1.3); }
     }
 
+    /* ─────────────── MAIN ─────────────── */
     main {
       flex: 1;
-      max-width: 1100px;
+      max-width: 1140px;
       width: 100%;
       margin: 0 auto;
-      padding: 32px 24px;
+      padding: 28px 20px;
       display: flex;
       flex-direction: column;
-      gap: 28px;
+      gap: 24px;
+      position: relative;
+      z-index: 1;
     }
 
-    /* Primary Soundpack Switcher Card */
-    .hero-card {
-      background: linear-gradient(180deg, var(--surface) 0%, rgba(18, 20, 30, 0.6) 100%);
+    /* ─────────────── CARD BASE ─────────────── */
+    .card {
+      background: var(--surface);
       border: 1px solid var(--surface-border);
       border-radius: var(--radius);
-      padding: 28px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      padding: 24px;
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      transition: var(--transition-smooth);
       position: relative;
       overflow: hidden;
     }
 
-    .hero-card::before {
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, var(--accent-1) 50%, transparent 100%);
+      opacity: 0.5;
+    }
+
+    .card:hover {
+      border-color: var(--surface-border-hover);
+    }
+
+    .card-glow {
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(139, 92, 246, 0.05);
+    }
+
+    /* ─────────────── SECTION TITLES ─────────────── */
+    .section-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--accent-1);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-label .icon {
+      font-size: 14px;
+    }
+
+    .card-heading {
+      font-family: var(--sans);
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 18px;
+      color: #fff;
+      letter-spacing: -0.3px;
+    }
+
+    /* ─────────────── SOUNDPACK GRID ─────────────── */
+    .soundpack-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 8px;
+    }
+
+    .soundpack-card {
+      background: var(--surface-elevated);
+      border: 1.5px solid var(--surface-border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .soundpack-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--accent-gradient-subtle);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+
+    .soundpack-card:hover {
+      border-color: rgba(139, 92, 246, 0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+
+    .soundpack-card:hover::after {
+      opacity: 1;
+    }
+
+    .soundpack-card.active {
+      border-color: var(--accent-1);
+      background: linear-gradient(180deg, rgba(139,92,246,0.12) 0%, rgba(99,102,241,0.06) 100%);
+      box-shadow: 0 0 20px var(--accent-glow), inset 0 0 20px rgba(139,92,246,0.05);
+    }
+
+    .soundpack-card.active::before {
       content: '';
       position: absolute;
       top: 0;
@@ -153,144 +321,89 @@
       background: var(--accent-gradient);
     }
 
-    .section-title {
-      font-size: 14px;
+    .sp-name {
+      font-family: var(--mono);
+      font-size: 13px;
       font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--accent);
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .card-heading {
-      font-size: 22px;
-      font-weight: 700;
-      margin-bottom: 20px;
       color: #fff;
+      line-height: 1.3;
+      z-index: 1;
     }
 
-    /* Soundpack Select & Apply Controls */
-    .switcher-row {
+    .sp-author {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      z-index: 1;
+    }
+
+    .sp-tags {
       display: flex;
-      gap: 16px;
-      align-items: center;
+      gap: 5px;
       flex-wrap: wrap;
+      z-index: 1;
     }
 
-    .select-wrapper {
-      flex: 1;
-      min-width: 280px;
-      position: relative;
-    }
-
-    .soundpack-select {
-      width: 100%;
-      padding: 16px 20px;
-      padding-right: 48px;
-      font-size: 16px;
+    .sp-tag {
+      font-family: var(--mono);
+      font-size: 9px;
       font-weight: 600;
-      color: #fff;
-      background: var(--surface-elevated);
-      border: 1.5px solid var(--surface-border);
-      border-radius: 10px;
-      appearance: none;
-      cursor: pointer;
-      outline: none;
-      transition: all 0.2s ease;
+      padding: 2px 7px;
+      background: rgba(139, 92, 246, 0.1);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      border-radius: 4px;
+      color: var(--accent-3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
-    .soundpack-select:focus, .soundpack-select:hover {
-      border-color: var(--accent);
-      box-shadow: 0 0 16px var(--accent-glow);
-    }
-
-    .select-icon {
+    .sp-active-badge {
       position: absolute;
-      right: 18px;
-      top: 50%;
-      transform: translateY(-50%);
-      pointer-events: none;
-      color: var(--text-muted);
-      font-size: 14px;
+      top: 10px;
+      right: 10px;
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 700;
+      padding: 3px 8px;
+      background: var(--accent-gradient);
+      border-radius: 4px;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      z-index: 2;
+      box-shadow: 0 2px 8px var(--accent-glow);
     }
 
-    .apply-btn {
-      padding: 16px 32px;
-      font-size: 15px;
-      font-weight: 700;
-      color: #fff;
-      background: var(--accent-gradient);
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
+    .sp-apply-indicator {
+      margin-top: auto;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dimmed);
       display: flex;
       align-items: center;
-      gap: 10px;
-      box-shadow: 0 4px 20px var(--accent-glow);
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      gap: 6px;
+      z-index: 1;
+      transition: color 0.2s ease;
     }
 
-    .apply-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 24px rgba(139, 92, 246, 0.6);
+    .soundpack-card:hover .sp-apply-indicator {
+      color: var(--accent-3);
     }
 
-    .apply-btn:active {
-      transform: translateY(1px);
+    .soundpack-card.active .sp-apply-indicator {
+      color: var(--success);
     }
 
-    .apply-btn.applied {
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      box-shadow: 0 4px 20px var(--success-glow);
-    }
-
-    /* Soundpack Info Panel */
-    .pack-info {
-      margin-top: 20px;
-      padding-top: 20px;
-      border-top: 1px solid var(--surface-border);
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .pack-description {
-      font-size: 14px;
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
-
-    .pack-tags {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .tag-badge {
-      font-size: 12px;
-      font-weight: 500;
-      padding: 3px 10px;
-      background: var(--surface-elevated);
-      border: 1px solid var(--surface-border);
-      border-radius: 12px;
-      color: #c4b5fd;
-    }
-
-    /* Grid Layout for Controls & Telemetry */
+    /* ─────────────── GRID LAYOUT ─────────────── */
     .grid-2 {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 24px;
+      gap: 20px;
     }
 
-    .panel-card {
-      background: var(--surface);
-      border: 1px solid var(--surface-border);
-      border-radius: var(--radius);
-      padding: 24px;
+    /* ─────────────── CONTROLS ─────────────── */
+    .controls-inner {
       display: flex;
       flex-direction: column;
       gap: 20px;
@@ -302,29 +415,58 @@
       justify-content: space-between;
     }
 
-    .sound-toggle-btn {
-      padding: 12px 24px;
-      font-size: 15px;
-      font-weight: 700;
-      border-radius: 10px;
-      border: none;
+    .toggle-label {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* Premium Toggle Switch */
+    .toggle-switch {
+      position: relative;
+      width: 52px;
+      height: 28px;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      transition: all 0.2s;
     }
 
-    .sound-toggle-btn.active {
-      background: rgba(16, 185, 129, 0.15);
-      color: #34d399;
-      border: 1px solid rgba(16, 185, 129, 0.4);
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
     }
 
-    .sound-toggle-btn.muted {
-      background: rgba(239, 68, 68, 0.15);
-      color: #f87171;
-      border: 1px solid rgba(239, 68, 68, 0.4);
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--surface-border);
+      transition: var(--transition-smooth);
+    }
+
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: var(--transition-bounce);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .toggle-switch input:checked + .toggle-track {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: var(--success-border);
+    }
+
+    .toggle-switch input:checked + .toggle-track::after {
+      transform: translateX(24px);
+      background: var(--success);
+      box-shadow: 0 0 10px var(--success-glow);
     }
 
     .slider-group {
@@ -336,142 +478,257 @@
     .slider-header {
       display: flex;
       justify-content: space-between;
-      font-size: 13px;
+      font-family: var(--mono);
+      font-size: 12px;
       font-weight: 600;
       color: var(--text-muted);
     }
 
     .slider-value {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--mono);
+      font-weight: 700;
       color: #fff;
+      font-size: 12px;
     }
 
     input[type="range"] {
       -webkit-appearance: none;
       width: 100%;
-      height: 6px;
+      height: 5px;
       border-radius: 3px;
-      background: var(--surface-elevated);
+      background: rgba(255,255,255,0.06);
       outline: none;
       cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    input[type="range"]:hover {
+      background: rgba(255,255,255,0.1);
     }
 
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
-      background: var(--accent);
+      background: var(--accent-1);
       cursor: pointer;
       box-shadow: 0 0 10px var(--accent-glow);
-      transition: transform 0.1s;
+      transition: var(--transition-bounce);
+      border: 2px solid rgba(255,255,255,0.2);
     }
 
     input[type="range"]::-webkit-slider-thumb:hover {
-      transform: scale(1.2);
+      transform: scale(1.25);
+      box-shadow: 0 0 16px var(--accent-glow-strong);
     }
 
-    /* Telemetry Stats */
-    .stat-list {
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-1);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--accent-glow);
+      border: 2px solid rgba(255,255,255,0.2);
+    }
+
+    /* ─────────────── TELEMETRY ─────────────── */
+    .stat-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 14px;
+      gap: 12px;
     }
 
     .stat-item {
-      background: var(--surface-elevated);
+      background: rgba(255,255,255,0.02);
       border: 1px solid var(--surface-border);
-      border-radius: 10px;
-      padding: 14px 16px;
+      border-radius: var(--radius-sm);
+      padding: 14px;
       display: flex;
       flex-direction: column;
       gap: 4px;
+      transition: var(--transition-smooth);
+    }
+
+    .stat-item:hover {
+      border-color: var(--surface-border-hover);
+      background: rgba(139, 92, 246, 0.04);
     }
 
     .stat-label {
-      font-size: 11px;
-      font-weight: 600;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-muted);
+      letter-spacing: 0.8px;
+      color: var(--text-dimmed);
     }
 
     .stat-number {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 20px;
+      font-family: var(--mono);
+      font-size: 18px;
       font-weight: 700;
       color: #fff;
     }
 
-    /* Interactive Keyboard Visualizer */
-    .keyboard-section {
-      background: var(--surface);
-      border: 1px solid var(--surface-border);
-      border-radius: var(--radius);
-      padding: 24px;
+    .stat-accent {
+      color: var(--accent-3);
     }
 
-    .kb-title-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-
+    /* ─────────────── KEYBOARD VISUALIZER ─────────────── */
     .keyboard-grid {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 5px;
       padding: 16px;
-      background: var(--bg);
+      background: rgba(0,0,0,0.3);
       border: 1px solid var(--surface-border);
-      border-radius: 10px;
+      border-radius: var(--radius-sm);
     }
 
     .kb-row {
       display: flex;
-      gap: 6px;
+      gap: 5px;
       justify-content: center;
     }
 
     .key-cap {
-      height: 42px;
-      min-width: 42px;
-      padding: 0 10px;
-      background: var(--surface-elevated);
-      border: 1px solid var(--surface-border);
-      border-radius: 6px;
+      height: 40px;
+      min-width: 40px;
+      padding: 0 8px;
+      background: linear-gradient(180deg, rgba(30,34,55,0.9) 0%, rgba(20,23,38,0.9) 100%);
+      border: 1px solid rgba(60,66,100,0.4);
+      border-radius: var(--radius-xs);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 12px;
+      font-family: var(--mono);
+      font-size: 11px;
       font-weight: 600;
-      color: #cbd5e1;
+      color: #8892b0;
       cursor: pointer;
-      box-shadow: 0 3px 0 #0d0f17;
-      transition: all 0.08s ease;
+      box-shadow: 0 3px 0 rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+      transition: all 0.06s ease;
+      position: relative;
+    }
+
+    .key-cap:hover {
+      color: #c4b5fd;
+      border-color: rgba(139, 92, 246, 0.3);
+      background: linear-gradient(180deg, rgba(40,44,65,0.9) 0%, rgba(25,28,45,0.9) 100%);
     }
 
     .key-cap:active, .key-cap.pressed {
       transform: translateY(2px);
-      box-shadow: 0 1px 0 #0d0f17;
-      background: var(--accent);
+      box-shadow: 0 1px 0 rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+      background: var(--accent-gradient);
       color: #fff;
-      border-color: #a78bfa;
+      border-color: var(--accent-3);
       box-shadow: 0 0 14px var(--accent-glow);
     }
 
     .key-space { flex: 4; }
-    .key-wide { min-width: 68px; }
-    .key-extra-wide { min-width: 90px; }
+    .key-wide { min-width: 62px; }
+    .key-extra-wide { min-width: 84px; }
 
+    .kb-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .kb-hint {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dimmed);
+    }
+
+    /* ─────────────── FOOTER ─────────────── */
     footer {
       margin-top: auto;
-      padding: 20px;
+      padding: 18px;
       text-align: center;
-      font-size: 13px;
-      color: var(--text-muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dimmed);
       border-top: 1px solid var(--surface-border);
+      letter-spacing: 0.3px;
+    }
+
+    footer span {
+      color: var(--accent-3);
+    }
+
+    /* ─────────────── SCROLLBAR ─────────────── */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(139, 92, 246, 0.3);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(139, 92, 246, 0.5);
+    }
+
+    /* ─────────────── TOAST ─────────────── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 12px 20px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-solid);
+      border: 1px solid var(--success-border);
+      color: var(--success);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      z-index: 1000;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      backdrop-filter: var(--glass-blur);
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast.error {
+      border-color: var(--danger-border);
+      color: var(--danger);
+    }
+
+    /* ─────────────── LOADING SHIMMER ─────────────── */
+    .shimmer {
+      background: linear-gradient(90deg, transparent 25%, rgba(139,92,246,0.06) 50%, transparent 75%);
+      background-size: 200% 100%;
+      animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ─────────────── RESPONSIVE ─────────────── */
+    @media (max-width: 700px) {
+      main { padding: 16px 12px; }
+      .soundpack-grid { grid-template-columns: 1fr 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+      header { padding: 12px 16px; }
+    }
+
+    @media (max-width: 480px) {
+      .soundpack-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -486,106 +743,97 @@
       <span class="brand-badge">v1.0.0</span>
     </div>
 
-    <div class="status-badge">
-      <span class="status-dot"></span>
-      <span id="engineStatus">Engine Running</span>
-      <span style="color: var(--accent); font-family: 'JetBrains Mono';" id="topLatency">0.68 ms</span>
+    <div class="header-right">
+      <div class="status-badge">
+        <span class="status-dot"></span>
+        <span id="engineStatus">Engine Active</span>
+        <span style="color: var(--accent-3);" id="topLatency">0.00 ms</span>
+      </div>
     </div>
   </header>
 
   <main>
 
-    <!-- Soundpack Quick Switcher -->
-    <div class="hero-card">
-      <div class="section-title">🎹 Soundpack Profile</div>
-      <h2 class="card-heading">Choose Keyboard Sound</h2>
+    <!-- ═══════════ SOUNDPACK SELECTOR ═══════════ -->
+    <div class="card card-glow" id="soundpackSection">
+      <div class="section-label"><span class="icon">🎹</span> Soundpack Library</div>
+      <h1 class="card-heading">Choose Your Sound</h1>
 
-      <div class="switcher-row">
-        <div class="select-wrapper">
-          <select id="soundpackDropdown" class="soundpack-select">
-            <option value="" disabled selected>Loading soundpacks...</option>
-          </select>
-          <div class="select-icon">▼</div>
-        </div>
-
-        <button id="applyBtn" class="apply-btn" onclick="applySelectedSoundpack()">
-          <span>⚡</span>
-          <span id="applyBtnText">Apply Soundpack</span>
-        </button>
-      </div>
-
-      <div class="pack-info" id="packInfo">
-        <div class="pack-description" id="packDesc">Select a soundpack from the dropdown and click Apply.</div>
-        <div class="pack-tags" id="packTags"></div>
+      <div class="soundpack-grid" id="soundpackGrid">
+        <div class="soundpack-card shimmer" style="height:100px;"></div>
+        <div class="soundpack-card shimmer" style="height:100px;"></div>
+        <div class="soundpack-card shimmer" style="height:100px;"></div>
       </div>
     </div>
 
-    <!-- Controls & Telemetry -->
+    <!-- ═══════════ CONTROLS & TELEMETRY ═══════════ -->
     <div class="grid-2">
-      
+
       <!-- Audio Controls -->
-      <div class="panel-card">
-        <div class="section-title">🎛️ Audio Controls</div>
+      <div class="card" id="controlsPanel">
+        <div class="section-label"><span class="icon">🎛️</span> Audio Controls</div>
 
-        <div class="toggle-row">
-          <span style="font-weight: 600;">Sound Output</span>
-          <button id="muteToggleBtn" class="sound-toggle-btn active" onclick="toggleMute()">
-            <span>🔊</span>
-            <span id="muteToggleText">Sounds ON</span>
-          </button>
-        </div>
-
-        <div class="slider-group">
-          <div class="slider-header">
-            <span>Master Volume</span>
-            <span class="slider-value" id="masterVolVal">80%</span>
+        <div class="controls-inner">
+          <div class="toggle-row">
+            <span class="toggle-label">Sound Output</span>
+            <label class="toggle-switch" id="muteToggle">
+              <input type="checkbox" id="muteCheckbox" checked onchange="toggleMute()">
+              <span class="toggle-track"></span>
+            </label>
           </div>
-          <input type="range" id="masterVol" min="0" max="100" value="80" oninput="updateVolume()" />
-        </div>
 
-        <div class="slider-group">
-          <div class="slider-header">
-            <span>Keyboard Sound Boost</span>
-            <span class="slider-value" id="kbVolVal">100%</span>
+          <div class="slider-group">
+            <div class="slider-header">
+              <span>Master Volume</span>
+              <span class="slider-value" id="masterVolVal">80%</span>
+            </div>
+            <input type="range" id="masterVol" min="0" max="100" value="80" oninput="updateVolume()" />
           </div>
-          <input type="range" id="kbVol" min="0" max="200" value="100" oninput="updateVolume()" />
+
+          <div class="slider-group">
+            <div class="slider-header">
+              <span>Key Sound Boost</span>
+              <span class="slider-value" id="kbVolVal">100%</span>
+            </div>
+            <input type="range" id="kbVol" min="0" max="200" value="100" oninput="updateVolume()" />
+          </div>
         </div>
       </div>
 
-      <!-- Live Performance Telemetry -->
-      <div class="panel-card">
-        <div class="section-title">📊 Live Engine Telemetry</div>
+      <!-- Live Telemetry -->
+      <div class="card" id="telemetryPanel">
+        <div class="section-label"><span class="icon">📊</span> Live Telemetry</div>
 
-        <div class="stat-list">
+        <div class="stat-grid">
           <div class="stat-item">
-            <span class="stat-label">Scheduling Delay</span>
-            <span class="stat-number" style="color: #a78bfa;" id="statDelay">0.65 ms</span>
+            <span class="stat-label">Latency</span>
+            <span class="stat-number stat-accent" id="statDelay">0.00 ms</span>
           </div>
 
           <div class="stat-item">
-            <span class="stat-label">Active Voices</span>
+            <span class="stat-label">Voices</span>
             <span class="stat-number" id="statVoices">0 / 32</span>
           </div>
 
           <div class="stat-item">
-            <span class="stat-label">Total Keystrokes</span>
+            <span class="stat-label">Keystrokes</span>
             <span class="stat-number" id="statEvents">0</span>
           </div>
 
           <div class="stat-item">
-            <span class="stat-label">Audio Device</span>
-            <span class="stat-number" style="font-size: 14px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" id="statDevice">Default</span>
+            <span class="stat-label">Device</span>
+            <span class="stat-number" style="font-size: 12px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" id="statDevice">Default</span>
           </div>
         </div>
       </div>
 
     </div>
 
-    <!-- Interactive Test Keyboard Visualizer -->
-    <div class="keyboard-section">
-      <div class="kb-title-row">
-        <div class="section-title">⌨️ Interactive Test Keyboard</div>
-        <span style="font-size: 12px; color: var(--text-muted);">Press keys on physical keyboard or click to test</span>
+    <!-- ═══════════ KEYBOARD VISUALIZER ═══════════ -->
+    <div class="card" id="keyboardSection">
+      <div class="kb-info">
+        <div class="section-label"><span class="icon">⌨️</span> Test Keyboard</div>
+        <span class="kb-hint">Press physical keys or click to test</span>
       </div>
 
       <div class="keyboard-grid">
@@ -655,146 +903,164 @@
   </main>
 
   <footer>
-    IDzVibes Engine — Ultra-Low-Latency Keyboard Sound Architecture &copy; 2026
+    IDzVibes Engine — Ultra-Low-Latency Keyboard Sound Architecture <span>©</span> 2026
   </footer>
 
+  <!-- Toast notification -->
+  <div class="toast" id="toast"></div>
+
   <script>
+    // ═══════════ STATE ═══════════
     let soundpacks = [];
     let activePackId = '';
     let isMuted = false;
+    const pressedKeys = new Set();  // Track held keys for dedup
 
+    // ═══════════ TOAST SYSTEM ═══════════
+    let toastTimeout = null;
+    function showToast(msg, isError = false) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.className = 'toast' + (isError ? ' error' : '');
+      // Force reflow then show
+      void toast.offsetWidth;
+      toast.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2500);
+    }
+
+    // ═══════════ FETCH STATE ═══════════
     async function fetchState() {
       try {
         const res = await fetch('/api/state');
         if (!res.ok) return;
         const data = await res.json();
-        
+
         soundpacks = data.soundpacks || [];
         activePackId = data.active_soundpack_id;
         isMuted = data.is_muted;
 
-        updateSoundpackDropdown();
+        document.getElementById('muteCheckbox').checked = !isMuted;
+        renderSoundpackGrid();
         updateTelemetry(data);
       } catch (err) {
         console.error('Fetch error:', err);
       }
     }
 
-    function updateSoundpackDropdown() {
-      const select = document.getElementById('soundpackDropdown');
-      const currentSelected = select.value || activePackId;
-      select.innerHTML = '';
+    // ═══════════ SOUNDPACK GRID ═══════════
+    function renderSoundpackGrid() {
+      const grid = document.getElementById('soundpackGrid');
+      grid.innerHTML = '';
+
+      if (soundpacks.length === 0) {
+        grid.innerHTML = '<div style="color: var(--text-dimmed); font-family: var(--mono); font-size: 13px; padding: 20px;">No soundpacks found.</div>';
+        return;
+      }
 
       soundpacks.forEach(pack => {
-        const opt = document.createElement('option');
-        opt.value = pack.id;
-        opt.textContent = `${pack.name} ${pack.is_active ? '✓ (Active)' : ''}`;
-        if (pack.id === currentSelected || (!currentSelected && pack.is_active)) {
-          opt.selected = true;
+        const card = document.createElement('div');
+        card.className = 'soundpack-card' + (pack.is_active ? ' active' : '');
+        card.setAttribute('data-pack-id', pack.id);
+
+        let tagsHtml = '';
+        if (pack.tags && pack.tags.length > 0) {
+          tagsHtml = '<div class="sp-tags">' +
+            pack.tags.slice(0, 3).map(t => `<span class="sp-tag">${t}</span>`).join('') +
+            '</div>';
         }
-        select.appendChild(opt);
-      });
 
-      onDropdownChange();
+        card.innerHTML =
+          (pack.is_active ? '<div class="sp-active-badge">Active</div>' : '') +
+          '<div class="sp-name">' + escapeHtml(pack.name) + '</div>' +
+          '<div class="sp-author">by ' + escapeHtml(pack.author) + '</div>' +
+          tagsHtml +
+          '<div class="sp-apply-indicator">' +
+            (pack.is_active ? '✓ Currently Active' : '→ Click to Apply') +
+          '</div>';
+
+        card.addEventListener('click', () => applySoundpack(pack.id));
+        grid.appendChild(card);
+      });
     }
 
-    function onDropdownChange() {
-      const select = document.getElementById('soundpackDropdown');
-      const pack = soundpacks.find(p => p.id === select.value);
-      if (!pack) return;
-
-      document.getElementById('packDesc').textContent = pack.description || `${pack.name} by ${pack.author}`;
-      const tagsContainer = document.getElementById('packTags');
-      tagsContainer.innerHTML = '';
-      (pack.tags || []).forEach(t => {
-        const span = document.createElement('span');
-        span.className = 'tag-badge';
-        span.textContent = `#${t}`;
-        tagsContainer.appendChild(span);
-      });
-
-      const applyBtn = document.getElementById('applyBtn');
-      const applyBtnText = document.getElementById('applyBtnText');
-      if (pack.is_active) {
-        applyBtn.classList.add('applied');
-        applyBtnText.textContent = 'Active Soundpack';
-      } else {
-        applyBtn.classList.remove('applied');
-        applyBtnText.textContent = 'Apply Soundpack';
-      }
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
     }
 
-    document.getElementById('soundpackDropdown').addEventListener('change', onDropdownChange);
+    // ═══════════ APPLY SOUNDPACK ═══════════
+    async function applySoundpack(packId) {
+      if (!packId || packId === activePackId) return;
 
-    async function applySelectedSoundpack() {
-      const select = document.getElementById('soundpackDropdown');
-      const chosenId = select.value;
-      if (!chosenId) return;
-
-      const btn = document.getElementById('applyBtn');
-      const btnText = document.getElementById('applyBtnText');
-      btnText.textContent = 'Applying...';
+      // Optimistic UI update
+      const cards = document.querySelectorAll('.soundpack-card');
+      cards.forEach(c => {
+        const cId = c.getAttribute('data-pack-id');
+        if (cId === packId) {
+          c.classList.add('active');
+          c.querySelector('.sp-apply-indicator').textContent = '⏳ Applying...';
+        }
+      });
 
       try {
         const res = await fetch('/api/soundpacks/apply', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: chosenId })
+          body: JSON.stringify({ id: packId })
         });
         const result = await res.json();
         if (result.success) {
-          activePackId = chosenId;
-          soundpacks.forEach(p => p.is_active = (p.id === chosenId));
-          updateSoundpackDropdown();
-          btn.classList.add('applied');
-          btnText.textContent = '✓ Applied!';
-          setTimeout(() => {
-            btnText.textContent = 'Active Soundpack';
-          }, 1500);
+          activePackId = packId;
+          soundpacks.forEach(p => p.is_active = (p.id === packId));
+          renderSoundpackGrid();
+          showToast('✓ ' + result.message);
         } else {
-          alert('Error: ' + result.error);
-          btnText.textContent = 'Apply Soundpack';
+          showToast('Error: ' + result.error, true);
+          renderSoundpackGrid();  // revert
         }
       } catch (err) {
-        alert('Failed to connect to IDzVibes engine');
-        btnText.textContent = 'Apply Soundpack';
+        showToast('Failed to connect to engine', true);
+        renderSoundpackGrid();  // revert
       }
     }
 
+    // ═══════════ TELEMETRY ═══════════
     function updateTelemetry(data) {
-      document.getElementById('topLatency').textContent = `${(data.scheduling_delay_ms || 0.65).toFixed(2)} ms`;
-      document.getElementById('statDelay').textContent = `${(data.scheduling_delay_ms || 0.65).toFixed(2)} ms`;
-      document.getElementById('statVoices').textContent = `${data.active_voices} / ${data.voice_capacity}`;
+      const delay = (data.scheduling_delay_ms || 0).toFixed(2);
+      document.getElementById('topLatency').textContent = delay + ' ms';
+      document.getElementById('statDelay').textContent = delay + ' ms';
+      document.getElementById('statVoices').textContent = data.active_voices + ' / ' + data.voice_capacity;
       document.getElementById('statEvents').textContent = data.total_events.toLocaleString();
-      document.getElementById('statDevice').textContent = data.device_name || 'Default Output';
+      document.getElementById('statDevice').textContent = data.device_name || 'Default';
     }
 
-    async function updateVolume() {
+    // ═══════════ VOLUME ═══════════
+    let volumeDebounce = null;
+    function updateVolume() {
       const master = parseFloat(document.getElementById('masterVol').value) / 100.0;
       const kb = parseFloat(document.getElementById('kbVol').value) / 100.0;
 
-      document.getElementById('masterVolVal').textContent = `${Math.round(master * 100)}%`;
-      document.getElementById('kbVolVal').textContent = `${Math.round(kb * 100)}%`;
+      document.getElementById('masterVolVal').textContent = Math.round(master * 100) + '%';
+      document.getElementById('kbVolVal').textContent = Math.round(kb * 100) + '%';
 
-      await fetch('/api/volume', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ master, keyboard: kb })
-      });
+      // Debounce API calls to avoid flooding
+      clearTimeout(volumeDebounce);
+      volumeDebounce = setTimeout(async () => {
+        await fetch('/api/volume', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ master, keyboard: kb })
+        });
+      }, 50);
     }
 
+    // ═══════════ MUTE TOGGLE ═══════════
     async function toggleMute() {
-      isMuted = !isMuted;
-      const btn = document.getElementById('muteToggleBtn');
-      const text = document.getElementById('muteToggleText');
-      if (isMuted) {
-        btn.className = 'sound-toggle-btn muted';
-        text.textContent = '🔇 Sounds OFF';
-      } else {
-        btn.className = 'sound-toggle-btn active';
-        text.textContent = '🔊 Sounds ON';
-      }
-
+      isMuted = !document.getElementById('muteCheckbox').checked;
       await fetch('/api/mute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -802,10 +1068,14 @@
       });
     }
 
-    // Interactive On-Screen Keys Trigger
+    // ═══════════ KEYBOARD VISUALIZER — Click ═══════════
+    // Single global mouseup handler (not one per key-cap)
+    let activeClickKey = null;
     document.querySelectorAll('.key-cap').forEach(el => {
-      el.addEventListener('mousedown', async () => {
+      el.addEventListener('mousedown', async (e) => {
+        e.preventDefault();
         el.classList.add('pressed');
+        activeClickKey = el;
         const keyName = el.getAttribute('data-key');
         await fetch('/api/test-key', {
           method: 'POST',
@@ -813,24 +1083,35 @@
           body: JSON.stringify({ key: keyName })
         });
       });
-      window.addEventListener('mouseup', () => {
-        el.classList.remove('pressed');
-      });
     });
 
-    // Highlight key when typing on physical keyboard
-    window.addEventListener('keydown', (e) => {
-      const keyEl = document.querySelector(`[data-key="${e.code}"]`);
-      if (keyEl) keyEl.classList.add('pressed');
+    window.addEventListener('mouseup', () => {
+      if (activeClickKey) {
+        activeClickKey.classList.remove('pressed');
+        activeClickKey = null;
+      }
     });
+
+    // ═══════════ KEYBOARD VISUALIZER — Physical Key Dedup ═══════════
+    // Only trigger visual press on first keydown (not on repeat)
+    window.addEventListener('keydown', (e) => {
+      if (e.repeat) return;  // Ignore typematic repeats
+      const keyEl = document.querySelector('[data-key="' + e.code + '"]');
+      if (keyEl && !pressedKeys.has(e.code)) {
+        pressedKeys.add(e.code);
+        keyEl.classList.add('pressed');
+      }
+    });
+
     window.addEventListener('keyup', (e) => {
-      const keyEl = document.querySelector(`[data-key="${e.code}"]`);
+      pressedKeys.delete(e.code);
+      const keyEl = document.querySelector('[data-key="' + e.code + '"]');
       if (keyEl) keyEl.classList.remove('pressed');
     });
 
-    // Initialize and poll stats every second
+    // ═══════════ INIT ═══════════
     fetchState();
-    setInterval(fetchState, 1200);
+    setInterval(fetchState, 1500);
   </script>
 </body>
 </html>

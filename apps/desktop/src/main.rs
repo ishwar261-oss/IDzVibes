@@ -4,6 +4,7 @@
 
 pub mod server;
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -89,13 +90,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("      Press Ctrl+C or type 'q' to exit.");
     println!();
 
-    // Auto-open browser on Windows
-    #[cfg(windows)]
-    {
-        let _ = std::process::Command::new("cmd")
-            .args(["/c", "start", &format!("http://localhost:{}", ui_port)])
-            .spawn();
-    }
 
     let running = Arc::new(AtomicBool::new(true));
     let r_clone = Arc::clone(&running);
@@ -109,9 +103,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let run_loop = Arc::clone(&running);
 
     // Hot-path dispatcher thread: takes Raw Input events and routes to lock-free Audio queue
+    // Uses a HashSet to deduplicate held-key repeat events (Windows typematic repeat)
     let dispatch_thread = thread::Builder::new()
         .name("idz-event-dispatcher".to_string())
         .spawn(move || {
+            let mut keys_held: HashSet<idz_shared::KeyCode> = HashSet::new();
             while run_loop.load(Ordering::Relaxed) {
                 match input_rx.recv_timeout(Duration::from_millis(50)) {
                     Ok(event) => {
@@ -121,9 +117,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         } else {
                             match event.kind {
                                 InputEventKind::KeyDown => {
-                                    audio_clone.trigger_key_down(event.key, event.timestamp_us);
+                                    // Only trigger sound on the FIRST press, not on
+                                    // Windows typematic repeat events for held keys
+                                    if keys_held.insert(event.key) {
+                                        audio_clone.trigger_key_down(event.key, event.timestamp_us);
+                                    }
                                 }
                                 InputEventKind::KeyUp => {
+                                    keys_held.remove(&event.key);
                                     audio_clone.trigger_key_up(event.key, event.timestamp_us);
                                 }
                                 _ => {}

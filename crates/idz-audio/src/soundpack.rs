@@ -366,6 +366,11 @@ impl Soundpack {
                             self.fallback_sound.up_samples.push(buf);
                         } else if let Some(key) = parse_key_name(stem) {
                             self.key_sounds.entry(key).or_default().down_samples.push(buf);
+                        } else {
+                            // Generic/numbered audio files (e.g. apex1.wav, key1.wav, 1.wav)
+                            // that don't match a recognized key name → load as fallback
+                            // sounds so every key press in this pack produces audio
+                            self.fallback_sound.down_samples.push(buf);
                         }
                     }
                 }
