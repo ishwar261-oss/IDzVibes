@@ -120,18 +120,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             match event.kind {
                                 InputEventKind::KeyDown => {
                                     let now = Instant::now();
-                                    let should_trigger = match keys_held.get_mut(&event.key) {
-                                        Some(last_time) => {
-                                            let elapsed = now.duration_since(*last_time);
-                                            *last_time = now;
-                                            // If > 500ms has elapsed since the last KeyDown event for this key,
-                                            // the previous KeyUp was likely missed (e.g. Alt+Tab focus loss).
-                                            // If <= 500ms, it's an active typematic auto-repeat for a held key.
-                                            elapsed > Duration::from_millis(500)
-                                        }
-                                        None => {
-                                            keys_held.insert(event.key, now);
-                                            true
+                                    let is_alt_held = keys_held.contains_key(&idz_shared::KeyCode::AltLeft)
+                                        || keys_held.contains_key(&idz_shared::KeyCode::AltRight);
+
+                                    let is_modifier = matches!(
+                                        event.key,
+                                        idz_shared::KeyCode::AltLeft
+                                            | idz_shared::KeyCode::AltRight
+                                            | idz_shared::KeyCode::ControlLeft
+                                            | idz_shared::KeyCode::ControlRight
+                                            | idz_shared::KeyCode::MetaLeft
+                                            | idz_shared::KeyCode::MetaRight
+                                            | idz_shared::KeyCode::ShiftLeft
+                                            | idz_shared::KeyCode::ShiftRight
+                                    );
+
+                                    // Tab key and any non-modifier key pressed while Alt is held (Alt+Tab combo)
+                                    // should ALWAYS trigger a sound on every press.
+                                    let is_combo_or_tab = event.key == idz_shared::KeyCode::Tab || (is_alt_held && !is_modifier);
+
+                                    let should_trigger = if is_combo_or_tab {
+                                        keys_held.insert(event.key, now);
+                                        true
+                                    } else {
+                                        match keys_held.get_mut(&event.key) {
+                                            Some(last_time) => {
+                                                let elapsed = now.duration_since(*last_time);
+                                                *last_time = now;
+                                                // If > 350ms has elapsed since the last KeyDown event for this key,
+                                                // the previous KeyUp was likely missed (e.g. Alt+Tab focus loss).
+                                                // If <= 350ms, it's an active typematic auto-repeat for a held key.
+                                                elapsed > Duration::from_millis(350)
+                                            }
+                                            None => {
+                                                keys_held.insert(event.key, now);
+                                                true
+                                            }
                                         }
                                     };
 

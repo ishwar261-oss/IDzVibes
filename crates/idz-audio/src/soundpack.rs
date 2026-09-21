@@ -440,6 +440,8 @@ impl Soundpack {
             for sample in &mut ks.up_samples {
                 *sample = sample.resample_and_remix(target_sample_rate, target_channels);
             }
+
+            
         }
     }
 
@@ -460,7 +462,9 @@ impl Soundpack {
                 return Some(res);
             }
         }
-        self.fallback_sound.select_up()
+        // Do NOT fall back to fallback_sound on key release.
+        // Returning None prevents double key sounds (playing a second sound when releasing a key).
+        None
     }
 }
 

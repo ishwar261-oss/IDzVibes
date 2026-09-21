@@ -527,12 +527,13 @@
     const activeKeys = new Set();
 
     const soundpackProfiles = [
-      { id: "creamy_thock", name: "Creamy Thock", desc: "Deep, poppy acoustic thock with low-end resonance.", type: "thock", baseFreq: 180, snapFreq: 1200 },
-      { id: "cherrymx_red", name: "Cherry MX Red", desc: "Smooth linear switch sound with clean housing bottom-out.", type: "linear", baseFreq: 450, snapFreq: 2200 },
+      { id: "creamy_thock", name: "Creamy Thock", desc: "Deep, poppy acoustic thock with low-end housing resonance.", type: "thock", baseFreq: 180, snapFreq: 1200 },
+      { id: "steelseries_apex", name: "SteelSeries Apex Pro TKL", desc: "OmniPoint magnetic switch sound profile with dampening.", type: "silent", baseFreq: 260, snapFreq: 900 },
+      { id: "cherrymx_red", name: "Cherry MX Red (ABS)", desc: "Smooth linear switch sound with clean ABS keycap bottom-out.", type: "linear", baseFreq: 450, snapFreq: 2200 },
       { id: "blue_clicky", name: "Blue Clicky", desc: "Crisp tactile click with high-pitched activation snap.", type: "clicky", baseFreq: 3200, snapFreq: 4800 },
-      { id: "steelseries_apex", name: "Steelseries Apex Pro", desc: "Dampened gaming switch sound with soft landing.", type: "silent", baseFreq: 260, snapFreq: 900 },
-      { id: "razer_green", name: "Razer Green", desc: "Tactile clicky sound with sharp metallic clack.", type: "clicky", baseFreq: 2800, snapFreq: 5200 },
-      { id: "eg_oreo", name: "EG Oreo", desc: "PBT keycap thock with solid aluminum plate acoustic bounce.", type: "thock", baseFreq: 210, snapFreq: 1600 }
+      { id: "eg_oreo", name: "EG Oreo", desc: "PBT keycap thock with solid aluminum plate acoustic bounce.", type: "thock", baseFreq: 210, snapFreq: 1600 },
+      { id: "red_linear", name: "Red Linear", desc: "Classic linear switch with soft bottom-out acoustic response.", type: "linear", baseFreq: 380, snapFreq: 1800 },
+      { id: "retro_typewriter", name: "Retro Typewriter", desc: "Vintage mechanical hammer clack with metallic bell resonance.", type: "clicky", baseFreq: 2400, snapFreq: 5600 }
     ];
 
     let currentProfile = soundpackProfiles[0];
