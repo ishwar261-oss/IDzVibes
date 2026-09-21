@@ -606,8 +606,15 @@
       }
     }
 
+    let lastPlayTimeMs = 0;
+
     function playKeySound(isSpace = false) {
       if (isMuted) return;
+
+      const nowMs = performance.now();
+      if (nowMs - lastPlayTimeMs < 35) return; // Prevent duplicate sound triggers within 35ms
+      lastPlayTimeMs = nowMs;
+
       initAudio();
 
       const now = audioCtx.currentTime;
@@ -663,27 +670,6 @@
         osc.start(now);
         osc.stop(now + 0.09);
 
-        const noise = audioCtx.createBufferSource();
-        const bufferSize = audioCtx.sampleRate * 0.02;
-        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-        noise.buffer = buffer;
-
-        const noiseFilter = audioCtx.createBiquadFilter();
-        noiseFilter.type = 'bandpass';
-        noiseFilter.frequency.setValueAtTime(currentProfile.snapFreq, now);
-
-        const noiseGain = audioCtx.createGain();
-        noiseGain.gain.setValueAtTime(0.3 * volMultiplier, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.015);
-
-        noise.connect(noiseFilter);
-        noiseFilter.connect(noiseGain);
-        noiseGain.connect(masterGain);
-
-        noise.start(now);
-
       } else if (currentProfile.type === 'clicky') {
         const noise = audioCtx.createBufferSource();
         const bufferSize = audioCtx.sampleRate * 0.025;
@@ -736,12 +722,12 @@
         <div class="pack-desc">${pack.desc}</div>
       `;
       card.onclick = () => {
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
         document.querySelectorAll('.pack-card').forEach(c => c.classList.remove('active'));
         card.classList.add('active');
         currentProfile = pack;
         document.getElementById('active-pack-title').textContent = pack.name;
         loadProfileAudioSamples(pack);
-        playKeySound();
       };
       grid.appendChild(card);
     });
