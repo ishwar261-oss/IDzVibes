@@ -702,6 +702,19 @@
     window.onkeydown = (e) => {
       if (e.repeat) return; // Deduplicate held key repeats
       const code = e.code;
+
+      // Tab key or any key pressed while Alt is held (Alt+Tab combo) should ALWAYS trigger sound
+      if (code === 'Tab' || e.altKey) {
+        playKeySound(code === 'Space');
+        if (keyElements[code]) {
+          keyElements[code].classList.add('active');
+          setTimeout(() => {
+            if (keyElements[code]) keyElements[code].classList.remove('active');
+          }, 150);
+        }
+        return;
+      }
+
       if (!activeKeys.has(code)) {
         activeKeys.add(code);
         playKeySound(code === 'Space');
@@ -717,6 +730,11 @@
       if (keyElements[code]) {
         keyElements[code].classList.remove('active');
       }
+    };
+
+    window.onblur = () => {
+      activeKeys.clear();
+      document.querySelectorAll('.key').forEach(el => el.classList.remove('active'));
     };
   </script>
 </body>
