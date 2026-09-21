@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IDzVibes — Live Web Demo | Ultra-Low-Latency Keyboard Sound Engine</title>
+  <meta name="description" content="Try IDzVibes live in your browser! Experience mechanical keyboard soundpacks with real-time acoustic synthesis and interactive keyboard." />
+
+  <!-- Google Fonts: Aptos Mono fallback / Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-dark: #090a0f;
+      --bg-card: rgba(18, 20, 29, 0.75);
+      --bg-card-hover: rgba(28, 32, 48, 0.85);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(99, 102, 241, 0.4);
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.35);
+      --accent-cyan: #06b6d4;
+      --accent-pink: #ec4899;
+      --key-bg: rgba(30, 35, 52, 0.8);
+      --key-active: #6366f1;
+      --font-mono: 'Aptos Mono', 'Fira Code', Consolas, monospace;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.12) 0px, transparent 50%),
+        radial-gradient(at 50% 50%, rgba(236, 72, 153, 0.08) 0px, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      max-width: 1100px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .badge-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.9rem;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #10b981;
+      font-size: 0.825rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #10b981;
+      box-shadow: 0 0 10px #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    h1 {
+      font-size: 2.75rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 50%, #6366f1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.2;
+    }
+
+    p.subtitle {
+      color: var(--text-secondary);
+      font-size: 1.1rem;
+      max-width: 650px;
+    }
+
+    /* Live Controls Bar */
+    .controls-bar {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1.25rem 1.75rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .status-group {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+      letter-spacing: 0.05em;
+    }
+
+    .stat-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: #ffffff;
+    }
+
+    .slider-group {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    input[type="range"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 140px;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.15);
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .btn-toggle {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 0.6rem 1.2rem;
+      border-radius: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-toggle:hover {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: var(--accent);
+    }
+
+    .btn-toggle.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+
+    /* Soundpack Selection Grid */
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .soundpack-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+
+    .pack-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 0.85rem;
+      padding: 1.25rem;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pack-card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(99, 102, 241, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .pack-card.active {
+      border-color: var(--accent);
+      background: rgba(99, 102, 241, 0.12);
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+    }
+
+    .pack-card.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: var(--accent);
+    }
+
+    .pack-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+
+    .pack-desc {
+      font-size: 0.825rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    /* Virtual Keyboard Visualizer */
+    .keyboard-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .keyboard-hint {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+
+    .keyboard {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      align-items: center;
+      user-select: none;
+    }
+
+    .key-row {
+      display: flex;
+      gap: 0.4rem;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .key {
+      background: var(--key-bg);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 0.4rem;
+      height: 44px;
+      min-width: 40px;
+      padding: 0 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #d1d5db;
+      cursor: pointer;
+      transition: all 0.08s ease;
+      box-shadow: 0 3px 0 rgba(0, 0, 0, 0.4);
+    }
+
+    .key:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+
+    .key.active {
+      background: var(--accent);
+      color: #ffffff;
+      transform: translateY(2px);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    .key-wide-15 { width: 62px; }
+    .key-wide-175 { width: 72px; }
+    .key-wide-20 { width: 84px; }
+    .key-wide-225 { width: 94px; }
+    .key-space { width: 260px; }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    footer a {
+      color: var(--accent-cyan);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="badge-live">
+        <span class="pulse-dot"></span>
+        Live Audio Engine Active
+      </div>
+      <h1>IDzVibes Web Demo</h1>
+      <p class="subtitle">Experience mechanical keyboard sound profiles live in your browser with procedural acoustic synthesis. Press any key on your keyboard!</p>
+    </header>
+
+    <!-- Dashboard Controls -->
+    <div class="controls-bar">
+      <div class="status-group">
+        <div class="stat-item">
+          <span class="stat-label">Active Soundpack</span>
+          <span class="stat-value" id="active-pack-title" style="color: var(--accent-cyan);">Creamy Thock</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Keystrokes</span>
+          <span class="stat-value" id="keystroke-count">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Latency</span>
+          <span class="stat-value" style="color: #10b981;">< 1.2 ms</span>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <span class="stat-label">Volume</span>
+        <input type="range" id="volume-slider" min="0" max="100" value="80" />
+        <button class="btn-toggle" id="mute-btn">
+          🔊 Mute: Off
+        </button>
+      </div>
+    </div>
+
+    <!-- Soundpacks Grid -->
+    <div>
+      <h2 class="section-title">📦 Choose Mechanical Sound Profile</h2>
+      <div class="soundpack-grid" id="soundpack-container">
+        <!-- Injected via JS -->
+      </div>
+    </div>
+
+    <!-- Virtual Keyboard -->
+    <div class="keyboard-card">
+      <div class="keyboard-hint">⌨️ Press physical keys or click virtual keys below:</div>
+      <div class="keyboard" id="keyboard">
+        <!-- Row 1 -->
+        <div class="key-row">
+          <div class="key" data-key="Escape">Esc</div>
+          <div class="key" data-key="F1">F1</div>
+          <div class="key" data-key="F2">F2</div>
+          <div class="key" data-key="F3">F3</div>
+          <div class="key" data-key="F4">F4</div>
+          <div class="key" data-key="F5">F5</div>
+          <div class="key" data-key="F6">F6</div>
+          <div class="key" data-key="F7">F7</div>
+          <div class="key" data-key="F8">F8</div>
+          <div class="key" data-key="F9">F9</div>
+          <div class="key" data-key="F10">F10</div>
+          <div class="key" data-key="F11">F11</div>
+          <div class="key" data-key="F12">F12</div>
+        </div>
+        <!-- Row 2 -->
+        <div class="key-row">
+          <div class="key" data-key="Backquote">`</div>
+          <div class="key" data-key="Digit1">1</div>
+          <div class="key" data-key="Digit2">2</div>
+          <div class="key" data-key="Digit3">3</div>
+          <div class="key" data-key="Digit4">4</div>
+          <div class="key" data-key="Digit5">5</div>
+          <div class="key" data-key="Digit6">6</div>
+          <div class="key" data-key="Digit7">7</div>
+          <div class="key" data-key="Digit8">8</div>
+          <div class="key" data-key="Digit9">9</div>
+          <div class="key" data-key="Digit0">0</div>
+          <div class="key" data-key="Minus">-</div>
+          <div class="key" data-key="Equal">=</div>
+          <div class="key key-wide-20" data-key="Backspace">Backspace</div>
+        </div>
+        <!-- Row 3 -->
+        <div class="key-row">
+          <div class="key key-wide-15" data-key="Tab">Tab</div>
+          <div class="key" data-key="KeyQ">Q</div>
+          <div class="key" data-key="KeyW">W</div>
+          <div class="key" data-key="KeyE">E</div>
+          <div class="key" data-key="KeyR">R</div>
+          <div class="key" data-key="KeyT">T</div>
+          <div class="key" data-key="KeyY">Y</div>
+          <div class="key" data-key="KeyU">U</div>
+          <div class="key" data-key="KeyI">I</div>
+          <div class="key" data-key="KeyO">O</div>
+          <div class="key" data-key="KeyP">P</div>
+          <div class="key" data-key="BracketLeft">[</div>
+          <div class="key" data-key="BracketRight">]</div>
+          <div class="key key-wide-15" data-key="Backslash">\</div>
+        </div>
+        <!-- Row 4 -->
+        <div class="key-row">
+          <div class="key key-wide-175" data-key="CapsLock">Caps Lock</div>
+          <div class="key" data-key="KeyA">A</div>
+          <div class="key" data-key="KeyS">S</div>
+          <div class="key" data-key="KeyD">D</div>
+          <div class="key" data-key="KeyF">F</div>
+          <div class="key" data-key="KeyG">G</div>
+          <div class="key" data-key="KeyH">H</div>
+          <div class="key" data-key="KeyJ">J</div>
+          <div class="key" data-key="KeyK">K</div>
+          <div class="key" data-key="KeyL">L</div>
+          <div class="key" data-key="Semicolon">;</div>
+          <div class="key" data-key="Quote">'</div>
+          <div class="key key-wide-225" data-key="Enter">Enter</div>
+        </div>
+        <!-- Row 5 -->
+        <div class="key-row">
+          <div class="key key-wide-225" data-key="ShiftLeft">Shift</div>
+          <div class="key" data-key="KeyZ">Z</div>
+          <div class="key" data-key="KeyX">X</div>
+          <div class="key" data-key="KeyC">C</div>
+          <div class="key" data-key="KeyV">V</div>
+          <div class="key" data-key="KeyB">B</div>
+          <div class="key" data-key="KeyN">N</div>
+          <div class="key" data-key="KeyM">M</div>
+          <div class="key" data-key="Comma">,</div>
+          <div class="key" data-key="Period">.</div>
+          <div class="key" data-key="Slash">/</div>
+          <div class="key key-wide-225" data-key="ShiftRight">Shift</div>
+        </div>
+        <!-- Row 6 -->
+        <div class="key-row">
+          <div class="key key-wide-15" data-key="ControlLeft">Ctrl</div>
+          <div class="key key-wide-15" data-key="MetaLeft">Win</div>
+          <div class="key key-wide-15" data-key="AltLeft">Alt</div>
+          <div class="key key-space" data-key="Space">Spacebar</div>
+          <div class="key key-wide-15" data-key="AltRight">Alt</div>
+          <div class="key key-wide-15" data-key="ControlRight">Ctrl</div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <p>IDzVibes — Open Source Keyboard Sound Engine built with Rust</p>
+      <p><a href="https://github.com/ishwar261-oss/IDzVibes" target="_blank" rel="noopener">View GitHub Repository & Download Desktop App</a></p>
+    </footer>
+  </div>
+
+  <script>
+    // --- Sound Synthesis Engine via Web Audio API ---
+    let audioCtx = null;
+    let masterGain = null;
+    let isMuted = false;
+    let masterVolume = 0.8;
+    let count = 0;
+    const activeKeys = new Set();
+
+    const soundpackProfiles = [
+      { id: "creamy_thock", name: "Creamy Thock", desc: "Deep, poppy acoustic thock with low-end resonance.", type: "thock", baseFreq: 180, snapFreq: 1200 },
+      { id: "cherrymx_red", name: "Cherry MX Red", desc: "Smooth linear switch sound with clean housing bottom-out.", type: "linear", baseFreq: 450, snapFreq: 2200 },
+      { id: "blue_clicky", name: "Blue Clicky", desc: "Crisp tactile click with high-pitched activation snap.", type: "clicky", baseFreq: 3200, snapFreq: 4800 },
+      { id: "steelseries_apex", name: "Steelseries Apex Pro", desc: "Dampened gaming switch sound with soft landing.", type: "silent", baseFreq: 260, snapFreq: 900 },
+      { id: "razer_green", name: "Razer Green", desc: "Tactile clicky sound with sharp metallic clack.", type: "clicky", baseFreq: 2800, snapFreq: 5200 },
+      { id: "eg_oreo", name: "EG Oreo", desc: "PBT keycap thock with solid aluminum plate acoustic bounce.", type: "thock", baseFreq: 210, snapFreq: 1600 }
+    ];
+
+    let currentProfile = soundpackProfiles[0];
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.setValueAtTime(isMuted ? 0 : masterVolume, audioCtx.currentTime);
+        masterGain.connect(audioCtx.destination);
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playKeySound(isSpace = false) {
+      if (isMuted) return;
+      initAudio();
+
+      const now = audioCtx.currentTime;
+      const volMultiplier = isSpace ? 1.35 : 1.0;
+      const freqPitchMod = (Math.random() * 0.08) - 0.04;
+
+      if (currentProfile.type === 'thock') {
+        // Deep Thock Synthesis
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const filter = audioCtx.createBiquadFilter();
+
+        osc.type = 'sine';
+        const startFreq = (currentProfile.baseFreq * (isSpace ? 0.75 : 1.0)) * (1 + freqPitchMod);
+        osc.frequency.setValueAtTime(startFreq * 1.5, now);
+        osc.frequency.exponentialRampToValueAtTime(startFreq, now + 0.03);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(800, now);
+        filter.Q.setValueAtTime(3, now);
+
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.8 * volMultiplier, now + 0.004);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(masterGain);
+
+        osc.start(now);
+        osc.stop(now + 0.09);
+
+        // Click transient
+        const noise = audioCtx.createBufferSource();
+        const bufferSize = audioCtx.sampleRate * 0.02;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        noise.buffer = buffer;
+
+        const noiseFilter = audioCtx.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.setValueAtTime(currentProfile.snapFreq, now);
+
+        const noiseGain = audioCtx.createGain();
+        noiseGain.gain.setValueAtTime(0.3 * volMultiplier, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.015);
+
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(masterGain);
+
+        noise.start(now);
+
+      } else if (currentProfile.type === 'clicky') {
+        // High Clicky Snap Synthesis
+        const noise = audioCtx.createBufferSource();
+        const bufferSize = audioCtx.sampleRate * 0.025;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        noise.buffer = buffer;
+
+        const noiseFilter = audioCtx.createBiquadFilter();
+        noiseFilter.type = 'highpass';
+        noiseFilter.frequency.setValueAtTime(currentProfile.baseFreq * (1 + freqPitchMod), now);
+
+        const noiseGain = audioCtx.createGain();
+        noiseGain.gain.setValueAtTime(0.9 * volMultiplier, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(masterGain);
+
+        noise.start(now);
+      } else {
+        // Linear / Silent Synthesis
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(currentProfile.baseFreq * (1 + freqPitchMod), now);
+        
+        gain.gain.setValueAtTime(0.5 * volMultiplier, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+        osc.connect(gain);
+        gain.connect(masterGain);
+
+        osc.start(now);
+        osc.stop(now + 0.06);
+      }
+
+      // Update counters
+      count++;
+      document.getElementById('keystroke-count').textContent = count;
+    }
+
+    // --- UI Setup ---
+    const grid = document.getElementById('soundpack-container');
+    soundpackProfiles.forEach((pack, idx) => {
+      const card = document.createElement('div');
+      card.className = `pack-card ${idx === 0 ? 'active' : ''}`;
+      card.innerHTML = `
+        <div class="pack-name">${pack.name}</div>
+        <div class="pack-desc">${pack.desc}</div>
+      `;
+      card.onclick = () => {
+        document.querySelectorAll('.pack-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        currentProfile = pack;
+        document.getElementById('active-pack-title').textContent = pack.name;
+        playKeySound();
+      };
+      grid.appendChild(card);
+    });
+
+    // Mute & Volume
+    const muteBtn = document.getElementById('mute-btn');
+    const volumeSlider = document.getElementById('volume-slider');
+
+    muteBtn.onclick = () => {
+      isMuted = !isMuted;
+      muteBtn.classList.toggle('active', isMuted);
+      muteBtn.textContent = isMuted ? '🔇 Mute: On' : '🔊 Mute: Off';
+      if (masterGain) masterGain.gain.setValueAtTime(isMuted ? 0 : masterVolume, audioCtx.currentTime);
+    };
+
+    volumeSlider.oninput = (e) => {
+      masterVolume = e.target.value / 100;
+      if (masterGain && !isMuted) {
+        masterGain.gain.setValueAtTime(masterVolume, audioCtx.currentTime);
+      }
+    };
+
+    // Keyboard Event Handling with Key-Repeat Deduplication
+    const keyElements = {};
+    document.querySelectorAll('.key').forEach(el => {
+      keyElements[el.dataset.key] = el;
+      el.onmousedown = (e) => {
+        e.preventDefault();
+        playKeySound(el.dataset.key === 'Space');
+        el.classList.add('active');
+        setTimeout(() => el.classList.remove('active'), 120);
+      };
+    });
+
+    window.onkeydown = (e) => {
+      if (e.repeat) return; // Deduplicate held key repeats
+      const code = e.code;
+      if (!activeKeys.has(code)) {
+        activeKeys.add(code);
+        playKeySound(code === 'Space');
+        if (keyElements[code]) {
+          keyElements[code].classList.add('active');
+        }
+      }
+    };
+
+    window.onkeyup = (e) => {
+      const code = e.code;
+      activeKeys.delete(code);
+      if (keyElements[code]) {
+        keyElements[code].classList.remove('active');
+      }
+    };
+  </script>
+</body>
+</html>

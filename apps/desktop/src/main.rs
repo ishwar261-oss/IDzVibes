@@ -4,12 +4,12 @@
 
 pub mod server;
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
@@ -102,12 +102,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let audio_clone = audio_handle.clone();
     let run_loop = Arc::clone(&running);
 
-    // Hot-path dispatcher thread: takes Raw Input events and routes to lock-free Audio queue
-    // Uses a HashSet to deduplicate held-key repeat events (Windows typematic repeat)
+    // Hot-path dispatcher thread: takes Raw Input events and routes to lock-free Audio queue.
+    // Uses a HashMap with Instant timestamps to deduplicate held-key repeat events (Windows typematic repeat)
+    // while ensuring multi-key combinations (Alt+Tab, Ctrl+C, etc.) trigger sounds once per key press,
+    // and recovering automatically if Windows swallows KeyUp during Alt+Tab / focus changes.
     let dispatch_thread = thread::Builder::new()
         .name("idz-event-dispatcher".to_string())
         .spawn(move || {
-            let mut keys_held: HashSet<idz_shared::KeyCode> = HashSet::new();
+            let mut keys_held: HashMap<idz_shared::KeyCode, Instant> = HashMap::new();
             while run_loop.load(Ordering::Relaxed) {
                 match input_rx.recv_timeout(Duration::from_millis(50)) {
                     Ok(event) => {
@@ -117,9 +119,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         } else {
                             match event.kind {
                                 InputEventKind::KeyDown => {
-                                    // Only trigger sound on the FIRST press, not on
-                                    // Windows typematic repeat events for held keys
-                                    if keys_held.insert(event.key) {
+                                    let now = Instant::now();
+                                    let should_trigger = match keys_held.get_mut(&event.key) {
+                                        Some(last_time) => {
+                                            let elapsed = now.duration_since(*last_time);
+                                            *last_time = now;
+                                            // If > 500ms has elapsed since the last KeyDown event for this key,
+                                            // the previous KeyUp was likely missed (e.g. Alt+Tab focus loss).
+                                            // If <= 500ms, it's an active typematic auto-repeat for a held key.
+                                            elapsed > Duration::from_millis(500)
+                                        }
+                                        None => {
+                                            keys_held.insert(event.key, now);
+                                            true
+                                        }
+                                    };
+
+                                    if should_trigger {
                                         audio_clone.trigger_key_down(event.key, event.timestamp_us);
                                     }
                                 }
